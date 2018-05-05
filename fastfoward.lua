@@ -10,12 +10,14 @@
 -- the playback speed to 1x.
 local decay_delay = 2.5 -- time in seconds until playback speed decreases again
 local speed_increments = .2 -- amount by which playback speed is increased each time
+local max_rate = 5 -- will not exceed this rate
 
 local mp = require 'mp'
 local options = require 'mp.options'
 
 local function inc_speed()
     local new_speed = mp.get_property("speed") + speed_increments
+    if new_speed > max_rate then new_speed = max_rate end
     mp.set_property("speed", new_speed)
     mp.osd_message("▶▶ x"..new_speed, decay_delay)
 end
