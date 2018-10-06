@@ -13,7 +13,6 @@ local speed_increments = .2 -- amount by which playback speed is increased each 
 local max_rate = 5 -- will not exceed this rate
 
 local mp = require 'mp'
-local options = require 'mp.options'
 
 local function inc_speed()
     local new_speed = mp.get_property("speed") + speed_increments
