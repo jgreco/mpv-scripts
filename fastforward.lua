@@ -9,12 +9,17 @@ local decay_delay = .05 -- rate of time by which playback speed is decreased
 local speed_increments = .2 -- amount by which playback speed is increased each time
 local speed_decrements = .4 -- amount by which playback speed is decreased each time
 local max_rate = 5 -- will not exceed this rate
+local inertial_decay = false -- changes the behavior of speed decay
 
+
+-----------------------
 local mp = require 'mp'
+local auto_dec_timer = nil
+local osd_duration = math.max(decay_delay, mp.get_property_number("osd-duration")/1000)
 
 local function inc_speed()
-    if timer ~= nil then
-        timer:kill()
+    if auto_dec_timer ~= nil then
+        auto_dec_timer:kill()
     end
 
     local new_speed = mp.get_property("speed") + speed_increments
@@ -24,27 +29,34 @@ local function inc_speed()
     end
 
     mp.set_property("speed", new_speed)
-    mp.osd_message(("▶▶ x%.1f"):format(new_speed))
+    mp.osd_message(("▶▶ x%.1f"):format(new_speed), osd_duration)
 end
 
-local function dec_speed()
-    timer = mp.add_periodic_timer(decay_delay, function()
-        local new_speed = mp.get_property("speed") - speed_decrements
-        if new_speed < 1 + speed_decrements then
-            new_speed = 1
-            timer:kill()
-        end
-        mp.set_property("speed", new_speed)
-        mp.osd_message(("▶▶ x%.1f"):format(new_speed))
-    end)
+local function auto_dec_speed()
+    auto_dec_timer = mp.add_periodic_timer(decay_delay, dec_speed)
+end
+
+function dec_speed()
+    local new_speed = mp.get_property("speed") - speed_decrements
+    if new_speed < 1 + speed_decrements then
+        new_speed = 1
+        if auto_dec_timer ~= nil then auto_dec_timer:kill() end
+    end
+    mp.set_property("speed", new_speed)
+    mp.osd_message(("▶▶ x%.1f"):format(new_speed), osd_duration)
 end
 
 local function fastforward_handle(table)
-    if table["event"] == "down" or table["event"] == "repeat" then
+    if table == nil or table["event"] == "down" or table["event"] == "repeat" then
         inc_speed()
+        if inertial_decay then
+            mp.add_timeout(decay_delay, dec_speed)
+        end
     elseif table["event"] == "up" then
-        dec_speed()
+        if not inertial_decay then
+            auto_dec_speed()
+        end
     end
 end
 
-mp.add_forced_key_binding("RIGHT", "fastforward", fastforward_handle, {complex=true})
+mp.add_forced_key_binding("RIGHT", "fastforward", fastforward_handle, {complex=not inertial_decay, repeatable=inertial_decay})
